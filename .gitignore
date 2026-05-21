@@ -1,1 +1,4 @@
 listings.csv
+
+.venv/
+__pycache__/

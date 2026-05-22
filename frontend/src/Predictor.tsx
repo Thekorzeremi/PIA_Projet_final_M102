@@ -189,7 +189,7 @@ export default function Predictor() {
         </div>
 
         <form onSubmit={handleEstimate} className="space-y-6">
-          <div className="flex flex-col gap-2 bg-slate-100 p-5 rounded-2xl border border-slate-200">
+          <div className="flex flex-col gap-2 bg-slate-100/50 p-5 rounded-2xl border border-slate-200">
             <label className="text-sm font-medium flex items-center gap-2 text-slate-800">
               <Search className="w-4 h-4 text-accent" /> Localisation exacte
               (Adresse à Paris)
@@ -208,7 +208,7 @@ export default function Predictor() {
           </div>
 
           {/* SECTION 1 : CRITÈRES PRINCIPAUX ET SELECTS */}
-          <div className="p-6 rounded-2xl bg-slate-100/50 border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-6 rounded-2xl bg-slate-100/50 border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium flex items-center gap-2 text-slate-800">
                 <MapPin className="w-4 h-4 text-accent" /> Quartier
@@ -216,7 +216,7 @@ export default function Predictor() {
               <select
                 value={neighbourhood}
                 onChange={(e) => setNeighbourhood(e.target.value)}
-                className="border border-slate-300 rounded-xl px-3 py-2.5 text-sm h-8 bg-white text-slate-900"
+                className="border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white text-slate-900"
               >
                 {NEIGHBOURHOODS.map((zone) => (
                   <option key={zone} value={zone}>
@@ -233,7 +233,7 @@ export default function Predictor() {
               <select
                 value={roomType}
                 onChange={(e) => setRoomType(e.target.value)}
-                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm h-8 bg-white text-slate-900"
+                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white text-slate-900"
               >
                 {ROOM_TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -250,7 +250,7 @@ export default function Predictor() {
               <select
                 value={propertyType}
                 onChange={(e) => setPropertyType(e.target.value)}
-                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm h-8 bg-white text-slate-900"
+                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white text-slate-900"
               >
                 {PROPERTY_TYPES.map((prop) => (
                   <option key={prop} value={prop}>

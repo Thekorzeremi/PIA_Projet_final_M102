@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
+import re
+import requests
 
 from geocode_service import GeocodeService
 
@@ -41,6 +43,7 @@ MODEL_FEATURES = [
     "host_identity_verified",
     "instant_bookable",
     "availability_365",
+    "number_of_reviews_l30d",
     "review_scores_rating",
     "review_scores_cleanliness",
     "review_scores_location",
@@ -53,12 +56,19 @@ MODEL_FEATURES = [
     "latitude",
     "longitude",
     "calculated_host_listings_count",
+    "host_total_listings_count",
     "estimated_occupancy_l365d",
+    "estimated_revenue_l365d",
     "has_wifi",
     "has_tv",
     "has_kitchen",
     "has_ac",
     "has_elevator",
+    "has_oven",
+    "has_heating",
+    "has_refrigerator",
+    "has_fire_extinguisher",
+    "has_first_aid",
     "has_washer",
     "has_dishwasher",
     "has_parking",
@@ -69,6 +79,62 @@ MODEL_FEATURES = [
     "property_type",
     "host_response_time",
 ]
+
+PARIS_NEIGHBOURHOODS_BY_ARRONDISSEMENT = {
+    1: "Louvre",
+    2: "Temple",
+    3: "Temple",
+    4: "Hôtel-de-Ville",
+    5: "Panthéon",
+    6: "Luxembourg",
+    7: "Palais-Bourbon",
+    8: "Élysée",
+    9: "Opéra",
+    10: "Entrepôt",
+    11: "Popincourt",
+    12: "Reuilly",
+    13: "Gobelins",
+    14: "Observatoire",
+    15: "Vaugirard",
+    16: "Passy",
+    17: "Batignolles-Monceau",
+    18: "Buttes-Montmartre",
+    19: "Buttes-Chaumont",
+    20: "Ménilmontant",
+}
+
+
+def infer_neighbourhood_from_coordinates(latitude: float, longitude: float) -> str | None:
+    try:
+        response = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={
+                "lat": latitude,
+                "lon": longitude,
+                "format": "json",
+                "zoom": 10,
+                "addressdetails": 1,
+            },
+            headers={"User-Agent": "mon-app-python"},
+            timeout=8,
+        )
+        response.raise_for_status()
+        data = response.json()
+        address = data.get("address", {}) if isinstance(data, dict) else {}
+
+        for key in ("city_district", "suburb", "borough", "municipality"):
+            value = address.get(key)
+            if not value:
+                continue
+
+            match = re.search(r"(\d{1,2})\s*e\s*Arrondissement", value)
+            if match:
+                arrondissement = int(match.group(1))
+                return PARIS_NEIGHBOURHOODS_BY_ARRONDISSEMENT.get(arrondissement)
+
+        return None
+    except Exception:
+        return None
 
 
 # =========================================================
@@ -136,33 +202,61 @@ class PredictRequest(BaseModel):
     host_response_time: HostResponseTimeEnum = Field(..., description="Délai moyen de réponse de l'hôte")
     
     # Features numériques nettoyées et vérifiées
-    accommodates: int = Field(..., ge=1, le=16, description="Capacité d'accueil globale", json_schema_extra={"example": 4})
-    bedrooms: float = Field(..., ge=0, description="Nombre de chambres", json_schema_extra={"example": 2.0})
-    bathrooms: float = Field(..., ge=0, description="Nombre de salles de bain", json_schema_extra={"example": 1.0})
-    maximum_nights: int = Field(..., ge=1, description="Nombre de nuits maximum", json_schema_extra={"example": 30})
-    host_listings_count: float = Field(..., ge=0, description="Nombre total d'annonces de l'hôte", json_schema_extra={"example": 1.0})
-    latitude: float = Field(..., description="Coordonnée de latitude", json_schema_extra={"example": 48.8566})
-    longitude: float = Field(..., description="Coordonnée de longitude", json_schema_extra={"example": 2.3522})
+    accommodates: int = Field(4, ge=1, le=16, description="Capacité d'accueil globale", json_schema_extra={"example": 4})
+    bedrooms: float = Field(1.0, ge=0, description="Nombre de chambres", json_schema_extra={"example": 2.0})
+    bathrooms: float = Field(0.0, ge=0, description="Nombre de salles de bain", json_schema_extra={"example": 1.0})
+    maximum_nights: int = Field(1, ge=1, description="Nombre de nuits maximum", json_schema_extra={"example": 30})
+    host_listings_count: float = Field(1.0, ge=0, description="Nombre total d'annonces de l'hôte", json_schema_extra={"example": 1.0})
+    latitude: float = Field(48.8566, description="Coordonnée de latitude", json_schema_extra={"example": 48.8566})
+    longitude: float = Field(2.3522, description="Coordonnée de longitude", json_schema_extra={"example": 2.3522})
     
     # Taux convertis de strings (%) à numériques entiers
-    host_acceptance_rate: int = Field(..., ge=0, le=100, description="Taux d'acceptation de l'hôte en %", json_schema_extra={"example": 95})
-    host_response_rate: int = Field(..., ge=0, le=100, description="Taux de réponse de l'hôte en %", json_schema_extra={"example": 100})
+    host_acceptance_rate: int = Field(100, ge=0, le=100, description="Taux d'acceptation de l'hôte en %", json_schema_extra={"example": 95})
+    host_response_rate: int = Field(100, ge=0, le=100, description="Taux de réponse de l'hôte en %", json_schema_extra={"example": 100})
+    host_is_superhost: int = Field(1, ge=0, le=1, description="Superhost (0 ou 1)", json_schema_extra={"example": 1})
+    host_has_profile_pic: int = Field(1, ge=0, le=1, description="Photo de profil hôte (0 ou 1)", json_schema_extra={"example": 1})
+    host_identity_verified: int = Field(1, ge=0, le=1, description="Identité vérifiée (0 ou 1)", json_schema_extra={"example": 1})
+    instant_bookable: int = Field(1, ge=0, le=1, description="Réservation instantanée (0 ou 1)", json_schema_extra={"example": 1})
     
     # Calendrier et Disponibilités
-    availability_30: int = Field(..., ge=0, le=30, json_schema_extra={"example": 10})
-    availability_60: int = Field(..., ge=0, le=60, json_schema_extra={"example": 25})
-    availability_90: int = Field(..., ge=0, le=90, json_schema_extra={"example": 45})
-    availability_365: int = Field(..., ge=0, le=365, json_schema_extra={"example": 120})
-    availability_eoy: int = Field(..., ge=0, json_schema_extra={"example": 15})
+    availability_30: int = Field(0, ge=0, le=30, json_schema_extra={"example": 10})
+    availability_60: int = Field(0, ge=0, le=60, json_schema_extra={"example": 25})
+    availability_90: int = Field(0, ge=0, le=90, json_schema_extra={"example": 45})
+    availability_365: int = Field(365, ge=0, le=365, json_schema_extra={"example": 120})
+    availability_eoy: int = Field(0, ge=0, json_schema_extra={"example": 15})
     
     # Historique & Performance de l'annonce
-    number_of_reviews_ly: int = Field(..., ge=0, json_schema_extra={"example": 12})
-    estimated_occupancy_l365d: int = Field(..., json_schema_extra={"example": 140})
+    number_of_reviews_ly: int = Field(100, ge=0, json_schema_extra={"example": 12})
+    number_of_reviews: int = Field(100, ge=0, json_schema_extra={"example": 100})
+    number_of_reviews_ltm: int = Field(24, ge=0, json_schema_extra={"example": 24})
+    number_of_reviews_l30d: int = Field(4, ge=0, json_schema_extra={"example": 4})
+    estimated_occupancy_l365d: int = Field(300, ge=0, json_schema_extra={"example": 140})
+    estimated_revenue_l365d: int = Field(0, ge=0, json_schema_extra={"example": 0})
+    host_total_listings_count: float = Field(1.0, ge=0, json_schema_extra={"example": 1.0})
     
     # Indicateurs d'équipements (Amenities) demandés par l'énoncé
-    has_ac: int = Field(..., ge=0, le=1, description="Climatisation (0 ou 1)", json_schema_extra={"example": 1})
-    has_tv: int = Field(..., ge=0, le=1, description="Télévision (0 ou 1)", json_schema_extra={"example": 1})
-    has_kitchen: int = Field(..., ge=0, le=1, description="Cuisine équipée (0 ou 1)", json_schema_extra={"example": 1})
+    review_scores_cleanliness: float = Field(100, ge=0, le=100, description="Note propreté", json_schema_extra={"example": 100})
+    review_scores_rating: float = Field(100, ge=0, le=100, description="Note globale", json_schema_extra={"example": 100})
+    review_scores_location: float = Field(100, ge=0, le=100, description="Note emplacement", json_schema_extra={"example": 100})
+    review_scores_value: float = Field(100, ge=0, le=100, description="Note rapport qualité/prix", json_schema_extra={"example": 100})
+    review_scores_accuracy: float = Field(100, ge=0, le=100, description="Note exactitude", json_schema_extra={"example": 100})
+    review_scores_checkin: float = Field(100, ge=0, le=100, description="Note check-in", json_schema_extra={"example": 100})
+    review_scores_communication: float = Field(100, ge=0, le=100, description="Note communication", json_schema_extra={"example": 100})
+    has_wifi: int = Field(1, ge=0, le=1, description="Wi-Fi (0 ou 1)", json_schema_extra={"example": 1})
+    has_tv: int = Field(1, ge=0, le=1, description="Télévision (0 ou 1)", json_schema_extra={"example": 1})
+    has_kitchen: int = Field(1, ge=0, le=1, description="Cuisine équipée (0 ou 1)", json_schema_extra={"example": 1})
+    has_ac: int = Field(1, ge=0, le=1, description="Climatisation (0 ou 1)", json_schema_extra={"example": 1})
+    has_elevator: int = Field(1, ge=0, le=1, description="Ascenseur (0 ou 1)", json_schema_extra={"example": 1})
+    has_oven: int = Field(1, ge=0, le=1, description="Four (0 ou 1)", json_schema_extra={"example": 1})
+    has_heating: int = Field(1, ge=0, le=1, description="Chauffage (0 ou 1)", json_schema_extra={"example": 1})
+    has_refrigerator: int = Field(1, ge=0, le=1, description="Réfrigérateur (0 ou 1)", json_schema_extra={"example": 1})
+    has_fire_extinguisher: int = Field(1, ge=0, le=1, description="Extincteur (0 ou 1)", json_schema_extra={"example": 1})
+    has_first_aid: int = Field(1, ge=0, le=1, description="Trousse de secours (0 ou 1)", json_schema_extra={"example": 1})
+    has_washer: int = Field(1, ge=0, le=1, description="Lave-linge (0 ou 1)", json_schema_extra={"example": 1})
+    has_dishwasher: int = Field(1, ge=0, le=1, description="Lave-vaisselle (0 ou 1)", json_schema_extra={"example": 1})
+    has_parking: int = Field(1, ge=0, le=1, description="Parking (0 ou 1)", json_schema_extra={"example": 1})
+    has_balcony: int = Field(1, ge=0, le=1, description="Balcon (0 ou 1)", json_schema_extra={"example": 1})
+    has_workspace: int = Field(1, ge=0, le=1, description="Espace de travail (0 ou 1)", json_schema_extra={"example": 1})
 
 
 class GeocodeRequest(BaseModel):
@@ -251,28 +345,39 @@ def predict(request: PredictRequest = Body(...)):
     try:
         # Conversion Pydantic -> dict
         data = request.dict()
+        inferred_neighbourhood = infer_neighbourhood_from_coordinates(data["latitude"], data["longitude"])
+        if inferred_neighbourhood:
+            data["neighbourhood_cleansed"] = inferred_neighbourhood
         data["minimum_nights"] = max(1, int(data.get("maximum_nights", 1)))
-        data.setdefault("host_is_superhost", 0)
-        data.setdefault("host_has_profile_pic", 0)
-        data.setdefault("host_identity_verified", 0)
-        data.setdefault("instant_bookable", 0)
-        data.setdefault("number_of_reviews", int(data.get("number_of_reviews_ly", 0)))
-        data.setdefault("number_of_reviews_ltm", 0)
+        data.setdefault("host_is_superhost", 1)
+        data.setdefault("host_has_profile_pic", 1)
+        data.setdefault("host_identity_verified", 1)
+        data.setdefault("instant_bookable", 1)
+        data.setdefault("number_of_reviews", int(data.get("number_of_reviews_ly", 100)))
+        data.setdefault("number_of_reviews_ltm", 24)
+        data.setdefault("number_of_reviews_l30d", 4)
         data.setdefault("calculated_host_listings_count", int(data.get("host_listings_count", 0)))
-        data.setdefault("review_scores_rating", 0)
-        data.setdefault("review_scores_cleanliness", 0)
-        data.setdefault("review_scores_location", 0)
-        data.setdefault("review_scores_value", 0)
-        data.setdefault("review_scores_accuracy", 0)
-        data.setdefault("review_scores_checkin", 0)
-        data.setdefault("review_scores_communication", 0)
-        data.setdefault("has_wifi", 0)
-        data.setdefault("has_elevator", 0)
-        data.setdefault("has_washer", 0)
-        data.setdefault("has_dishwasher", 0)
-        data.setdefault("has_parking", 0)
-        data.setdefault("has_balcony", 0)
-        data.setdefault("has_workspace", 0)
+        data.setdefault("host_total_listings_count", float(data.get("host_listings_count", 1.0)))
+        data.setdefault("estimated_revenue_l365d", 0)
+        data.setdefault("review_scores_rating", 100)
+        data.setdefault("review_scores_cleanliness", 100)
+        data.setdefault("review_scores_location", 100)
+        data.setdefault("review_scores_value", 100)
+        data.setdefault("review_scores_accuracy", 100)
+        data.setdefault("review_scores_checkin", 100)
+        data.setdefault("review_scores_communication", 100)
+        data.setdefault("has_wifi", 1)
+        data.setdefault("has_elevator", 1)
+        data.setdefault("has_oven", 1)
+        data.setdefault("has_heating", 1)
+        data.setdefault("has_refrigerator", 1)
+        data.setdefault("has_fire_extinguisher", 1)
+        data.setdefault("has_first_aid", 1)
+        data.setdefault("has_washer", 1)
+        data.setdefault("has_dishwasher", 1)
+        data.setdefault("has_parking", 1)
+        data.setdefault("has_balcony", 1)
+        data.setdefault("has_workspace", 1)
         print(f"🔍 Données reçues pour prédiction : {data}")
 
         # Conversion DataFrame
@@ -283,7 +388,7 @@ def predict(request: PredictRequest = Body(...)):
 
         # Prédiction
         prediction = model.predict(input_df)[0]
-        prediction = prediction * 10
+        prediction = prediction * 6.8
         print(model.predict(input_df))
         print(f"💡 Prédiction brute : {prediction}")
 

@@ -438,7 +438,7 @@ export default function Predictor() {
               <span className="text-3xl font-medium text-accent ml-1">€</span>
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              Marge d'erreur moyenne observée (MAE) : ± 18.50€
+              Marge d'erreur moyenne observée (MAE) : ± 75.84€
             </p>
           </div>
         )}

@@ -148,13 +148,6 @@ class PredictRequest(BaseModel):
     host_acceptance_rate: int = Field(..., ge=0, le=100, description="Taux d'acceptation de l'hôte en %", json_schema_extra={"example": 95})
     host_response_rate: int = Field(..., ge=0, le=100, description="Taux de réponse de l'hôte en %", json_schema_extra={"example": 100})
     
-    # Calendrier et Disponibilités
-    availability_30: int = Field(..., ge=0, le=30, json_schema_extra={"example": 10})
-    availability_60: int = Field(..., ge=0, le=60, json_schema_extra={"example": 25})
-    availability_90: int = Field(..., ge=0, le=90, json_schema_extra={"example": 45})
-    availability_365: int = Field(..., ge=0, le=365, json_schema_extra={"example": 120})
-    availability_eoy: int = Field(..., ge=0, json_schema_extra={"example": 15})
-    
     # Historique & Performance de l'annonce
     number_of_reviews_ly: int = Field(..., ge=0, json_schema_extra={"example": 12})
     estimated_occupancy_l365d: int = Field(..., json_schema_extra={"example": 140})

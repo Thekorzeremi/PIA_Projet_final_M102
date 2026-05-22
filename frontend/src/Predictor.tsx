@@ -65,11 +65,6 @@ export default function Predictor() {
   const [bedrooms, setBedrooms] = useState<string>("");
   const [bathrooms, setBathrooms] = useState<string>("");
   const [maximumNights, setMaximumNights] = useState<string>("");
-  const [availability30, setAvailability30] = useState<string>("");
-  const [availability60, setAvailability60] = useState<string>("");
-  const [availability90, setAvailability90] = useState<string>("");
-  const [availability365, setAvailability365] = useState<string>("");
-  const [availabilityEoy, setAvailabilityEoy] = useState<string>("");
 
   // 3. États pour les structures booléennes (Checkbox - par défaut : false)
   const [hasTv, setHasTv] = useState<boolean>(false);
@@ -77,7 +72,7 @@ export default function Predictor() {
   const [hasAc, setHasAc] = useState<boolean>(false);
 
   // 4. États de gestion de l'API
-  const [prediction, setPrediction] = useState<number | null>(350);
+  const [prediction, setPrediction] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,13 +127,6 @@ export default function Predictor() {
       bedrooms: bedrooms !== "" ? parseFloat(bedrooms) : 1,
       bathrooms: bathrooms !== "" ? parseFloat(bathrooms) : 0,
       maximum_nights: maximumNights !== "" ? parseInt(maximumNights) : 1,
-
-      // Calendriers de disponibilités (Défaut à 0 si non remplis)
-      availability_30: availability30 !== "" ? parseInt(availability30) : 0,
-      availability_60: availability60 !== "" ? parseInt(availability60) : 0,
-      availability_90: availability90 !== "" ? parseInt(availability90) : 0,
-      availability_365: availability365 !== "" ? parseInt(availability365) : 0,
-      availability_eoy: availabilityEoy !== "" ? parseInt(availabilityEoy) : 0,
 
       // Reste des variables de ton EDA pour éviter le plantage API
       host_listings_count: 1.0,
@@ -310,66 +298,7 @@ export default function Predictor() {
             </div>
           </div>
 
-          {/* SECTION 3 : DISPONIBILITÉS (NUMÉRIQUES) */}
-          <div>
-            <h3 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3">
-              Disponibilités (jours)
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-600">Dispo 30j</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={availability30}
-                  onChange={(e) => setAvailability30(e.target.value)}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-600">Dispo 60j</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={availability60}
-                  onChange={(e) => setAvailability60(e.target.value)}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-600">Dispo 90j</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={availability90}
-                  onChange={(e) => setAvailability90(e.target.value)}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-600">Dispo 365j</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={availability365}
-                  onChange={(e) => setAvailability365(e.target.value)}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-600">Dispo EOY</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={availabilityEoy}
-                  onChange={(e) => setAvailabilityEoy(e.target.value)}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 4 : ÉQUIPEMENTS (CHECKBOXES / BOOLEANS) */}
+          {/* SECTION 3 : ÉQUIPEMENTS (CHECKBOXES / BOOLEANS) */}
           <div>
             <h3 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3">
               Équipements inclus

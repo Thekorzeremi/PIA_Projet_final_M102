@@ -4,6 +4,7 @@ import {
   Home,
   Loader2,
   MapPin,
+  Search,
   Tv,
   Utensils,
   Wind,
@@ -59,8 +60,7 @@ export default function Predictor() {
   const [propertyType, setPropertyType] = useState(PROPERTY_TYPES[0]);
 
   // 2. États pour les inputs numériques (vides par défaut pour laisser l'utilisateur saisir)
-  const [longitude, setLongitude] = useState<string>("");
-  const [latitude, setLatitude] = useState<string>("");
+  const [address, setAddress] = useState<string>("");
   const [accommodates, setAccommodates] = useState<string>("");
   const [bedrooms, setBedrooms] = useState<string>("");
   const [bathrooms, setBathrooms] = useState<string>("");
@@ -87,7 +87,38 @@ export default function Predictor() {
     setError(null);
     setPrediction(null);
 
-    // Construction du payload avec application stricte de tes valeurs logiques par défaut
+    let finalLongitude = 2.3522; // Valeurs de repli par défaut sur Paris Centre
+    let finalLatitude = 48.8566;
+
+    // --- ÉTAPE 1 : APPEL AU ENDPOINT DE GÉOCODAGE (si une adresse est entrée) ---
+    if (address.trim() !== "") {
+      try {
+        const geocodeResponse = await fetch("http://127.0.0.1:8000/geocode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adresse: address }),
+        });
+
+        if (!geocodeResponse.ok) {
+          const errData = await geocodeResponse.json();
+          throw new Error(errData.detail || "Adresse introuvable ou invalide.");
+        }
+
+        const geocodeData = await geocodeResponse.json();
+        finalLongitude = geocodeData.longitude;
+        finalLatitude = geocodeData.latitude;
+      } catch (err: any) {
+        setError(`Géocodage impossible : ${err.message}`);
+        setLoading(false);
+        return; // On stoppe la chaîne ici si l'adresse bloque
+      }
+    } else {
+      // Si le champ adresse est laissé vide, on applique la valeur par défaut demandée (0)
+      finalLongitude = 0;
+      finalLatitude = 0;
+    }
+
+    // --- ÉTAPE 2 : APPEL DE L'ESTIMATION DU PRIX (PREDICT) ---
     const payload = {
       neighbourhood_cleansed: neighbourhood,
       room_type: roomType,
@@ -95,8 +126,8 @@ export default function Predictor() {
       host_response_time: "within an hour", // Valeur par défaut statistique
 
       // Application des valeurs par défaut demandées si le champ est vide
-      longitude: longitude !== "" ? parseFloat(longitude) : 0,
-      latitude: latitude !== "" ? parseFloat(latitude) : 0,
+      longitude: finalLongitude,
+      latitude: finalLatitude,
       accommodates: accommodates !== "" ? parseInt(accommodates) : 4, // Logique de repli sur un standard de 4 places
       bedrooms: bedrooms !== "" ? parseFloat(bedrooms) : 1,
       bathrooms: bathrooms !== "" ? parseFloat(bathrooms) : 0,
@@ -158,6 +189,24 @@ export default function Predictor() {
         </div>
 
         <form onSubmit={handleEstimate} className="space-y-6">
+          <div className="flex flex-col gap-2 bg-slate-100 p-5 rounded-2xl border border-slate-200">
+            <label className="text-sm font-medium flex items-center gap-2 text-slate-800">
+              <Search className="w-4 h-4 text-accent" /> Localisation exacte
+              (Adresse à Paris)
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: 48 rue de Rivoli, Paris ou Tour Eiffel..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-accent transition-colors w-full"
+            />
+            <p className="text-xs text-slate-500">
+              L'adresse sera géocodée dynamiquement pour en extraire la latitude
+              et la longitude demandées par le modèle.
+            </p>
+          </div>
+
           {/* SECTION 1 : CRITÈRES PRINCIPAUX ET SELECTS */}
           <div className="p-6 rounded-2xl bg-slate-100/50 border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
@@ -217,29 +266,7 @@ export default function Predictor() {
             <h3 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3">
               Caractéristiques
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-600">Longitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="0"
-                  value={longitude}
-                  onChange={(e) => setLongitude(e.target.value)}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-600">Latitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="0"
-                  value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-slate-600">Capacité (acc)</label>
                 <input

@@ -131,7 +131,7 @@ export default function Predictor() {
       accommodates: accommodates !== "" ? parseInt(accommodates) : 4, // Logique de repli sur un standard de 4 places
       bedrooms: bedrooms !== "" ? parseFloat(bedrooms) : 1,
       bathrooms: bathrooms !== "" ? parseFloat(bathrooms) : 0,
-      maximum_nights: maximumNights !== "" ? parseInt(maximumNights) : 0,
+      maximum_nights: maximumNights !== "" ? parseInt(maximumNights) : 1,
 
       // Calendriers de disponibilités (Défaut à 0 si non remplis)
       availability_30: availability30 !== "" ? parseInt(availability30) : 0,

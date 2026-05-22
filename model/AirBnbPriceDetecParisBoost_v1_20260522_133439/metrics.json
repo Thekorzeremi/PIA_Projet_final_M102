@@ -1,0 +1,20 @@
+{
+    "model": "RandomForestRegressor (Tuned)",
+    "metric_main": {
+        "name": "MAE",
+        "value": 75.84,
+        "unit": "€"
+    },
+    "cv_results": {
+        "mean": 81.89,
+        "std": "N/A"
+    },
+    "date_entrainement": "2026-05-22 13:34:41",
+    "metrics_test": {
+        "MAE": 75.84,
+        "R2": 0.3652,
+        "RMSE": 518.03
+    },
+    "test_size": 0.2,
+    "random_state": 42
+}

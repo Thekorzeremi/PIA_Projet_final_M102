@@ -7,7 +7,6 @@ import pandas as pd
 
 from geocode_service import GeocodeService
 
-from geocode_service import GeocodeService
 
 app = FastAPI(
     title="Paris Airbnb Price Predictor API",
@@ -19,7 +18,9 @@ MODEL_PATH = Path("model.joblib")
 model = None
 
 
-# --- 1. ENUMS POUR LES CHAMPS SELECT (BASÉS SUR TON EDA) ---
+# =========================================================
+# 1. ENUMS
+# =========================================================
 
 class NeighbourhoodEnum(str, Enum):
     BUTTES_MONTMARTRE = "Buttes-Montmartre"
@@ -40,7 +41,7 @@ class NeighbourhoodEnum(str, Enum):
     REUILLY = "Reuilly"
     PALAIS_BOURBON = "Palais-Bourbon"
     TEMPLE = "Temple"
-    VANGIRARD = "Vaugirard"  # Note : Souvent écrit Vaugirard dans le dump original
+    VANGIRARD = "Vaugirard"
 
 
 class RoomTypeEnum(str, Enum):
@@ -70,7 +71,9 @@ class HostResponseTimeEnum(str, Enum):
     A_FEW_DAYS_OR_MORE = "a few days or more"
 
 
-# --- 2. SCHÉMA DE VALIDATION DES ENTRÉES ---
+# =========================================================
+# 2. SCHÉMAS
+# =========================================================
 
 class PredictRequest(BaseModel):
     # Les menus déroulants (Champs Select)
@@ -108,7 +111,17 @@ class PredictRequest(BaseModel):
     has_kitchen: int = Field(..., ge=0, le=1, description="Cuisine équipée (0 ou 1)", json_schema_extra={"example": 1})
 
 
-# --- 3. LOGIQUE SERVEUR ---
+class GeocodeRequest(BaseModel):
+    adresse: str = Field(
+        ...,
+        description="Adresse complète à géocoder",
+        json_schema_extra={"example": "48 rue de Rivoli Paris"}
+    )
+
+
+# =========================================================
+# 3. STARTUP
+# =========================================================
 
 @app.on_event("startup")
 def load_model():
@@ -118,41 +131,85 @@ def load_model():
             model = joblib.load(MODEL_PATH)
             print("🚀 Modèle chargé avec succès.")
         except Exception as e:
-            print(f"❌ Erreur de chargement du modèle : {e}")
+            print(f"❌ Erreur chargement modèle : {e}")
     else:
-        print("⚠️ Fichier model.joblib introuvable.")
+        print("⚠️ model.joblib introuvable")
 
+
+# =========================================================
+# 4. HEALTH CHECK
+# =========================================================
 
 @app.get("/", tags=["Health Check"])
 def health():
     return {
         "status": "healthy",
         "model_loaded": model is not None,
-        "warning": "La feature 'estimated_revenue_l365d' a été exclue pour prévenir le Data Leakage."
+        "warning": (
+            "La feature 'estimated_revenue_l365d' "
+            "a été exclue pour prévenir le Data Leakage."
+        )
     }
 
 
+# =========================================================
+# 5. GEOCODING ENDPOINT
+# =========================================================
+
+@app.post("/geocode", tags=["Geocoding"])
+def geocode_address(request: GeocodeRequest):
+
+    try:
+        coords = GeocodeService.geocode(request.adresse)
+
+        if coords is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Adresse introuvable"
+            )
+
+        return {
+            "adresse": request.adresse,
+            "latitude": coords["latitude"],
+            "longitude": coords["longitude"]
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur géocodage : {str(e)}"
+        )
+
+
+# =========================================================
+# 6. PREDICTION ENDPOINT
+# =========================================================
+
 @app.post("/predict", tags=["Inférence"])
 def predict(request: PredictRequest = Body(...)):
+
     if model is None:
-        raise HTTPException(status_code=503, detail="Modèle non disponible.")
-    
+        raise HTTPException(
+            status_code=503,
+            detail="Modèle non disponible."
+        )
+
     try:
-        # Transformation de l'objet Pydantic (contenant les strings des Enums) en dictionnaire
+        # Conversion Pydantic -> dict
         data = request.dict()
-        
-        # Passage au format DataFrame attendu par le ColumnTransformer du pipeline original
+
+        # Conversion DataFrame
         input_df = pd.DataFrame([data])
-        
-        # Inférence via le pipeline Scikit-Learn
+
+        # Prédiction
         prediction = model.predict(input_df)[0]
-        
+
         return {
             "prediction_price_euro": round(float(prediction), 2)
         }
-        
+
     except Exception as e:
         raise HTTPException(
-            status_code=400, 
-            detail=f"Erreur lors du traitement par le ColumnTransformer : {str(e)}"
+            status_code=400,
+            detail=f"Erreur traitement modèle : {str(e)}"
         )

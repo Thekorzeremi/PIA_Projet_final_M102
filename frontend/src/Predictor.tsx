@@ -1,7 +1,15 @@
-import { Building2, Calculator, Home, Loader2, MapPin } from "lucide-react";
+import {
+  Building2,
+  Calculator,
+  Home,
+  Loader2,
+  MapPin,
+  Tv,
+  Utensils,
+  Wind,
+} from "lucide-react";
 import React, { useState } from "react";
 
-// 1. Récupération des options exactes de tes graphiques EDA
 const NEIGHBOURHOODS = [
   "Buttes-Montmartre",
   "Élysée",
@@ -45,13 +53,31 @@ const PROPERTY_TYPES = [
 ];
 
 export default function Predictor() {
-  // États pour les 3 selects demandés
+  // 1. États pour les menus déroulants (Selects)
   const [neighbourhood, setNeighbourhood] = useState(NEIGHBOURHOODS[0]);
   const [roomType, setRoomType] = useState(ROOM_TYPES[0]);
   const [propertyType, setPropertyType] = useState(PROPERTY_TYPES[0]);
 
-  // États pour la gestion de l'API
-  const [prediction, setPrediction] = useState<number | null>(340);
+  // 2. États pour les inputs numériques (vides par défaut pour laisser l'utilisateur saisir)
+  const [longitude, setLongitude] = useState<string>("");
+  const [latitude, setLatitude] = useState<string>("");
+  const [accommodates, setAccommodates] = useState<string>("");
+  const [bedrooms, setBedrooms] = useState<string>("");
+  const [bathrooms, setBathrooms] = useState<string>("");
+  const [maximumNights, setMaximumNights] = useState<string>("");
+  const [availability30, setAvailability30] = useState<string>("");
+  const [availability60, setAvailability60] = useState<string>("");
+  const [availability90, setAvailability90] = useState<string>("");
+  const [availability365, setAvailability365] = useState<string>("");
+  const [availabilityEoy, setAvailabilityEoy] = useState<string>("");
+
+  // 3. États pour les structures booléennes (Checkbox - par défaut : false)
+  const [hasTv, setHasTv] = useState<boolean>(false);
+  const [hasKitchen, setHasKitchen] = useState<boolean>(false);
+  const [hasAc, setHasAc] = useState<boolean>(false);
+
+  // 4. États de gestion de l'API
+  const [prediction, setPrediction] = useState<number | null>(350);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,30 +87,39 @@ export default function Predictor() {
     setError(null);
     setPrediction(null);
 
-    // Payload qui match à 100% ton PredictRequest Pydantic de l'API
+    // Construction du payload avec application stricte de tes valeurs logiques par défaut
     const payload = {
       neighbourhood_cleansed: neighbourhood,
       room_type: roomType,
       property_type: propertyType,
-      host_response_time: "within an hour", // Valeur par défaut majoritaire (EDA)
-      accommodates: 4,
-      bedrooms: 2.0,
-      bathrooms: 1.0,
-      maximum_nights: 30,
+      host_response_time: "within an hour", // Valeur par défaut statistique
+
+      // Application des valeurs par défaut demandées si le champ est vide
+      longitude: longitude !== "" ? parseFloat(longitude) : 0,
+      latitude: latitude !== "" ? parseFloat(latitude) : 0,
+      accommodates: accommodates !== "" ? parseInt(accommodates) : 4, // Logique de repli sur un standard de 4 places
+      bedrooms: bedrooms !== "" ? parseFloat(bedrooms) : 1,
+      bathrooms: bathrooms !== "" ? parseFloat(bathrooms) : 0,
+      maximum_nights: maximumNights !== "" ? parseInt(maximumNights) : 0,
+
+      // Calendriers de disponibilités (Défaut à 0 si non remplis)
+      availability_30: availability30 !== "" ? parseInt(availability30) : 0,
+      availability_60: availability60 !== "" ? parseInt(availability60) : 0,
+      availability_90: availability90 !== "" ? parseInt(availability90) : 0,
+      availability_365: availability365 !== "" ? parseInt(availability365) : 0,
+      availability_eoy: availabilityEoy !== "" ? parseInt(availabilityEoy) : 0,
+
+      // Reste des variables de ton EDA pour éviter le plantage API
       host_listings_count: 1.0,
-      longitude: 2.3522,
       host_acceptance_rate: 95,
       host_response_rate: 100,
-      availability_30: 10,
-      availability_60: 25,
-      availability_90: 45,
-      availability_365: 120,
-      availability_eoy: 15,
       number_of_reviews_ly: 12,
       estimated_occupancy_l365d: 140,
-      has_ac: 1,
-      has_tv: 1,
-      has_kitchen: 1,
+
+      // Conversion des booleans (true/false) en indicateurs binaires numériques (1/0)
+      has_tv: hasTv ? 1 : 0,
+      has_kitchen: hasKitchen ? 1 : 0,
+      has_ac: hasAc ? 1 : 0,
     };
 
     try {
@@ -110,108 +145,278 @@ export default function Predictor() {
   };
 
   return (
-    <div className="min-height-screen">
-      {/* Effet de glow d'arrière-plan discret en haut à droite (Rappel du style des slides) */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
-          Paris Airbnb <span className="text-accent">Price Predictor</span>
-        </h1>
-        <p className="text-sm text-slate-400">
-          Aide à la décision intelligente pour l'optimisation des tarifs
-          locatifs parisiens.
-        </p>
-      </div>
+    <div className="min-h-screen text-slate-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-4xl border border-slate-200 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
+            Paris Airbnb <span className="text-accent">Price Predictor</span>
+          </h1>
+          <p className="text-sm text-slate-400">
+            Aide à la décision intelligente pour l'optimisation des tarifs
+            locatifs parisiens.
+          </p>
+        </div>
 
-      <form onSubmit={handleEstimate} className="space-y-6">
-        {/* Select 1 : Quartier */}
-        <div className="space-y-2 flex flex-col">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-accent" /> Quartier administratif
-          </label>
-          <select
-            value={neighbourhood}
-            onChange={(e) => setNeighbourhood(e.target.value)}
-            className=""
+        <form onSubmit={handleEstimate} className="space-y-6">
+          {/* SECTION 1 : CRITÈRES PRINCIPAUX ET SELECTS */}
+          <div className="p-6 rounded-2xl bg-slate-100/50 border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-slate-800">
+                <MapPin className="w-4 h-4 text-accent" /> Quartier
+              </label>
+              <select
+                value={neighbourhood}
+                onChange={(e) => setNeighbourhood(e.target.value)}
+                className="border border-slate-300 rounded-xl px-3 py-2.5 text-sm h-8 bg-white text-slate-900"
+              >
+                {NEIGHBOURHOODS.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-slate-800">
+                <Home className="w-4 h-4 text-accent" /> Logement
+              </label>
+              <select
+                value={roomType}
+                onChange={(e) => setRoomType(e.target.value)}
+                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm h-8 bg-white text-slate-900"
+              >
+                {ROOM_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-slate-800">
+                <Building2 className="w-4 h-4 text-accent" /> Propriété
+              </label>
+              <select
+                value={propertyType}
+                onChange={(e) => setPropertyType(e.target.value)}
+                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm h-8 bg-white text-slate-900"
+              >
+                {PROPERTY_TYPES.map((prop) => (
+                  <option key={prop} value={prop}>
+                    {prop}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* SECTION 2 : CARACTÉRISTIQUES DU LOGEMENT (NUMÉRIQUES) */}
+          <div>
+            <h3 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3">
+              Caractéristiques
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Capacité (acc)</label>
+                <input
+                  type="number"
+                  placeholder="4"
+                  value={accommodates}
+                  onChange={(e) => setAccommodates(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Chambres</label>
+                <input
+                  type="number"
+                  placeholder="1"
+                  value={bedrooms}
+                  onChange={(e) => setBedrooms(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Sdb</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={bathrooms}
+                  onChange={(e) => setBathrooms(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Nuits max</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={maximumNights}
+                  onChange={(e) => setMaximumNights(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3 : DISPONIBILITÉS (NUMÉRIQUES) */}
+          <div>
+            <h3 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3">
+              Disponibilités (jours)
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Dispo 30j</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={availability30}
+                  onChange={(e) => setAvailability30(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Dispo 60j</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={availability60}
+                  onChange={(e) => setAvailability60(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Dispo 90j</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={availability90}
+                  onChange={(e) => setAvailability90(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Dispo 365j</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={availability365}
+                  onChange={(e) => setAvailability365(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-600">Dispo EOY</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={availabilityEoy}
+                  onChange={(e) => setAvailabilityEoy(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 4 : ÉQUIPEMENTS (CHECKBOXES / BOOLEANS) */}
+          <div>
+            <h3 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3">
+              Équipements inclus
+            </h3>
+            <div className="flex flex-wrap gap-6 p-4 rounded-xl border border-slate-200 bg-slate-100/50">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-900">
+                <input
+                  type="checkbox"
+                  checked={hasTv}
+                  onChange={(e) => setHasTv(e.target.checked)}
+                  className="w-4 h-4 accent-accent rounded"
+                />
+                <Tv className="w-4 h-4 text-accent" /> Télévision
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-900">
+                <input
+                  type="checkbox"
+                  checked={hasKitchen}
+                  onChange={(e) => setHasKitchen(e.target.checked)}
+                  className="w-4 h-4 accent-accent rounded"
+                />
+                <Utensils className="w-4 h-4 text-accent" /> Cuisine équipée
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-900">
+                <input
+                  type="checkbox"
+                  checked={hasAc}
+                  onChange={(e) => setHasAc(e.target.checked)}
+                  className="w-4 h-4 accent-accent rounded"
+                />
+                <Wind className="w-4 h-4 text-accent" /> Climatisation
+              </label>
+            </div>
+          </div>
+
+          {/* BOUTON D'ACTION */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-accent hover:bg-accent/80 disabled:bg-slate-800 font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-accent/10"
           >
-            {NEIGHBOURHOODS.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Select 2 : Type de chambre */}
-        <div className="space-y-2 flex flex-col">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <Home className="w-4 h-4 text-accent" /> Type de logement
-          </label>
-          <select
-            value={roomType}
-            onChange={(e) => setRoomType(e.target.value)}
-            className=""
-          >
-            {ROOM_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Select 3 : Type de propriété */}
-        <div className="space-y-2 flex flex-col">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-accent" /> Type de propriété
-            spécifique
-          </label>
-          <select
-            value={propertyType}
-            onChange={(e) => setPropertyType(e.target.value)}
-            className=""
-          >
-            {PROPERTY_TYPES.map((prop) => (
-              <option key={prop} value={prop}>
-                {prop}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Bouton Estimer */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-accent hover:bg-accent/80 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/10 cursor-pointer text-white"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Calcul de l'estimation en cours...
-            </>
-          ) : (
-            <>
-              <Calculator className="w-5 h-5" />
-              Estimer le prix
-            </>
-          )}
-        </button>
-      </form>
-      {/* Zone de Résultat Dynamique */}
-      <div className="">
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Calcul de la prédiction IA...
+              </>
+            ) : (
+              <>
+                <Calculator className="w-5 h-5" />
+                Estimer le prix
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* ZONE DE RÉSULTAT */}
         {prediction !== null && (
-          <div className="mt-8 p-6 border border-accent/20 rounded-2xl flex flex-col items-center justify-center text-center animate-fade-in">
+          <div className="mt-8 p-6 border border-accent/20 40 rounded-2xl flex flex-col items-center justify-center text-center">
             <span className="text-sm text-slate-400 uppercase tracking-wider font-semibold mb-1">
-              Prix suggéré par l'IA
+              Estimation par Intelligence Artificielle
             </span>
             <div className="flex items-baseline text-6xl font-extrabold text-accent tracking-tight">
               {prediction}
               <span className="text-3xl font-medium text-accent ml-1">€</span>
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              Marge d'erreur moyenne du modèle (MAE) :{" "}
-              <span className="whitespace-nowrap">± 18.50€</span>
+              Marge d'erreur moyenne observée (MAE) : ± 18.50€
             </p>
           </div>
         )}
-        {/* Affichage des erreurs éventuelles (CORS, serveur éteint, etc.) */}
+
+        {/* AFFICHAGE DES ERREURS */}
         {error && (
           <div className="mt-6 p-4 bg-red-950/50 border border-red-500/30 text-red-400 rounded-xl text-sm text-center">
             ⚠️ {error}

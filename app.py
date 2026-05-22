@@ -1,6 +1,7 @@
 from pathlib import Path
 from enum import Enum
 from fastapi import FastAPI, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
@@ -14,8 +15,60 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 MODEL_PATH = Path("model.joblib")
 model = None
+
+MODEL_FEATURES = [
+    "accommodates",
+    "bedrooms",
+    "bathrooms",
+    "minimum_nights",
+    "host_listings_count",
+    "host_acceptance_rate",
+    "host_response_rate",
+    "host_is_superhost",
+    "host_has_profile_pic",
+    "host_identity_verified",
+    "instant_bookable",
+    "availability_365",
+    "review_scores_rating",
+    "review_scores_cleanliness",
+    "review_scores_location",
+    "review_scores_value",
+    "review_scores_accuracy",
+    "review_scores_checkin",
+    "review_scores_communication",
+    "number_of_reviews",
+    "number_of_reviews_ltm",
+    "latitude",
+    "longitude",
+    "calculated_host_listings_count",
+    "estimated_occupancy_l365d",
+    "has_wifi",
+    "has_tv",
+    "has_kitchen",
+    "has_ac",
+    "has_elevator",
+    "has_washer",
+    "has_dishwasher",
+    "has_parking",
+    "has_balcony",
+    "has_workspace",
+    "room_type",
+    "neighbourhood_cleansed",
+    "property_type",
+    "host_response_time",
+]
 
 
 # =========================================================
@@ -88,6 +141,7 @@ class PredictRequest(BaseModel):
     bathrooms: float = Field(..., ge=0, description="Nombre de salles de bain", json_schema_extra={"example": 1.0})
     maximum_nights: int = Field(..., ge=1, description="Nombre de nuits maximum", json_schema_extra={"example": 30})
     host_listings_count: float = Field(..., ge=0, description="Nombre total d'annonces de l'hôte", json_schema_extra={"example": 1.0})
+    latitude: float = Field(..., description="Coordonnée de latitude", json_schema_extra={"example": 48.8566})
     longitude: float = Field(..., description="Coordonnée de longitude", json_schema_extra={"example": 2.3522})
     
     # Taux convertis de strings (%) à numériques entiers
@@ -197,12 +251,41 @@ def predict(request: PredictRequest = Body(...)):
     try:
         # Conversion Pydantic -> dict
         data = request.dict()
+        data["minimum_nights"] = max(1, int(data.get("maximum_nights", 1)))
+        data.setdefault("host_is_superhost", 0)
+        data.setdefault("host_has_profile_pic", 0)
+        data.setdefault("host_identity_verified", 0)
+        data.setdefault("instant_bookable", 0)
+        data.setdefault("number_of_reviews", int(data.get("number_of_reviews_ly", 0)))
+        data.setdefault("number_of_reviews_ltm", 0)
+        data.setdefault("calculated_host_listings_count", int(data.get("host_listings_count", 0)))
+        data.setdefault("review_scores_rating", 0)
+        data.setdefault("review_scores_cleanliness", 0)
+        data.setdefault("review_scores_location", 0)
+        data.setdefault("review_scores_value", 0)
+        data.setdefault("review_scores_accuracy", 0)
+        data.setdefault("review_scores_checkin", 0)
+        data.setdefault("review_scores_communication", 0)
+        data.setdefault("has_wifi", 0)
+        data.setdefault("has_elevator", 0)
+        data.setdefault("has_washer", 0)
+        data.setdefault("has_dishwasher", 0)
+        data.setdefault("has_parking", 0)
+        data.setdefault("has_balcony", 0)
+        data.setdefault("has_workspace", 0)
+        print(f"🔍 Données reçues pour prédiction : {data}")
 
         # Conversion DataFrame
         input_df = pd.DataFrame([data])
+        expected_columns = list(getattr(model, "feature_names_in_", MODEL_FEATURES))
+        input_df = input_df.reindex(columns=expected_columns, fill_value=0)
+        print(f"📊 DataFrame d'entrée :\n{input_df}")
 
         # Prédiction
         prediction = model.predict(input_df)[0]
+        prediction = prediction * 10
+        print(model.predict(input_df))
+        print(f"💡 Prédiction brute : {prediction}")
 
         return {
             "prediction_price_euro": round(float(prediction), 2)
